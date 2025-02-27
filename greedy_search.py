@@ -1,10 +1,15 @@
 import json
-from scipy.stats import binom
+import math
+from scipy import stats
+from scipy.stats import beta
 
-def u_binom(k, n, delta):
-    return binom.ppf(1 - delta, n, k / n) if n > 0 else 1.0
+def u_binom(k, n, delta=0.05):
+    hi = stats.beta.ppf(1 - delta, k+1, n-k)
+    hi = 1.0 if math.isnan(hi) else hi
 
-with open("data1_cache_/question_dict.json", "r", encoding="utf-8") as f:
+    return hi
+
+with open("data1_cache_/question_dict_0.json", "r", encoding="utf-8") as f:
     question_dict = json.load(f)
 
 def find_optimal_threshold(question_dict, target_error_rate, delta=0.05):
@@ -51,5 +56,5 @@ def find_optimal_threshold(question_dict, target_error_rate, delta=0.05):
     print("\n Failed to find an optimal threshold. No value meets the target error rate.\n")
     return None
 
-target_error_rate = 0.31
+target_error_rate = 0.26
 optimal_threshold = find_optimal_threshold(question_dict, target_error_rate)

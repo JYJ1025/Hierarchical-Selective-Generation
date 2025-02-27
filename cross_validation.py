@@ -11,6 +11,7 @@ import warnings
 import scipy.stats as st
 from scipy import stats
 from scipy.stats import beta
+import matplotlib.patches as patches
 
 import matplotlib
 matplotlib.use('Agg')
@@ -68,78 +69,45 @@ def find_optimal_threshold(question_dict, target_error_rate, delta=0.05):
         # print("\n Failed to find an optimal threshold. No value meets the target error rate.\n")
         return None
 
-# def box_plot_results(val_ratios, contradict_ratios, iteration_avgs, target_error_rate, none_count, save_path):
-#     plt.figure(figsize=(12, 7))
-
-#     # Selectivity (none IDK ratio)
-#     plt.subplot(3, 1, 1)
-#     plt.boxplot(val_ratios, vert=True, patch_artist=True)
-#     plt.ylabel("Selectivity")
-#     plt.title(f"Ratio of Questions Above Threshold")
-
-#     # FDR-E (contradict_ratios)
-#     plt.subplot(3, 1, 2)
-#     plt.boxplot(contradict_ratios, vert=True, patch_artist=True)
-#     plt.axhline(y=target_error_rate, color='gray', linestyle='dashed', label=f'Target Error Rate: {target_error_rate}')
-#     plt.ylabel("FDR-E")
-#     plt.title(f"Contradiction Ratio Above Threshold\n(Target Error Rate: {target_error_rate}, None Count: {none_count})")
-#     plt.legend()
-
-#     # Selection Efficiency (iteration_avgs)
-#     plt.subplot(3, 1, 3)
-#     plt.boxplot(iteration_avgs, vert=True, patch_artist=True)
-#     plt.ylabel("Selection Efficiency")
-#     plt.title(f"Total Iterations to Exceed Threshold")
-    
-#     plt.tight_layout()
-#     plt.savefig(save_path, dpi=300)
-#     plt.close()
-#     # plt.show()
-    
 def box_plot_results(val_ratios, contradict_ratios, iteration_avgs, target_error_rate, none_count, save_path):
-    plt.figure(figsize=(12, 7))
-
-    # Selectivity (none IDK ratio)
-    plt.subplot(3, 1, 1)
-    bp1 = plt.boxplot(val_ratios, vert=True, patch_artist=True)
-    plt.ylabel("Selectivity")
-    plt.title("Ratio of Questions Above Threshold")
-
-    mean_val = np.mean(val_ratios)
-    se_val = st.sem(val_ratios)
-    ci_val = st.t.interval(0.95, len(val_ratios)-1, loc=mean_val, scale=se_val)
+    alpha = 0.025
     
-    plt.errorbar(1, mean_val, yerr=[[mean_val - ci_val[0]], [ci_val[1] - mean_val]], fmt='o', color='black', label="95% CI")
-    plt.legend()
-
-    # FDR-E (contradict_ratios)
-    plt.subplot(3, 1, 2)
-    bp2 = plt.boxplot(contradict_ratios, vert=True, patch_artist=True)
-    plt.axhline(y=target_error_rate, color='gray', linestyle='dashed', label=f'Target Error Rate: {target_error_rate}')
-    plt.ylabel("FDR-E")
-    plt.title(f"Contradiction Ratio Above Threshold\n(Target Error Rate: {target_error_rate}, None Count: {none_count})")
+    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
     
-    mean_contr = np.mean(contradict_ratios)
-    se_contr = st.sem(contradict_ratios)
-    ci_contr = st.t.interval(0.95, len(contradict_ratios)-1, loc=mean_contr, scale=se_contr)
-    plt.errorbar(1, mean_contr, yerr=[[mean_contr - ci_contr[0]], [ci_contr[1] - mean_contr]], fmt='o', color='black', label="95% CI")
-    plt.legend()
-
-    # Selection Efficiency (iteration_avgs)
-    plt.subplot(3, 1, 3)
-    bp3 = plt.boxplot(iteration_avgs, vert=True, patch_artist=True)
-    plt.ylabel("Selection Efficiency")
-    plt.title("Total Iterations to Exceed Threshold")
+    metrics = [
+        (val_ratios, "Validation Ratio"),
+        (contradict_ratios, "Contradict Ratio"),
+        (iteration_avgs, "Avg Iteration")
+    ]
     
-    mean_iter = np.mean(iteration_avgs)
-    se_iter = st.sem(iteration_avgs)
-    ci_iter = st.t.interval(0.95, len(iteration_avgs)-1, loc=mean_iter, scale=se_iter)
-    plt.errorbar(1, mean_iter, yerr=[[mean_iter - ci_iter[0]], [ci_iter[1] - mean_iter]], fmt='o', color='black', label="95% CI")
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300)
+    for ax, (data, label) in zip(axs, metrics):
+        bp = ax.boxplot(
+            data,
+            positions=[1], 
+            whis=(alpha * 100, (1 - alpha) * 100),  
+            showmeans=True,      
+            widths=0.3,         
+            patch_artist=True,  
+            boxprops=dict(linewidth=3, color='lightcoral'),
+            whiskerprops=dict(color='lightcoral'),
+            capprops=dict(color='lightcoral'),
+            medianprops=dict(linewidth=3.0)
+        )
+        
+        ax.set_title(label, fontsize=14)
+        ax.set_xticks([1])
+        ax.set_xticklabels([label], fontsize=12)
+        ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+        
+        if label == "Contradict Ratio":
+            ax.axhline(y=target_error_rate, color='blue', linestyle='--', label='Target Error Rate')
+            ax.legend(fontsize=12)
+    
+    fig.suptitle(f"Box Plot Results (Target Error Rate: {target_error_rate:.2f}, None Count: {none_count})", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig(save_path)
     plt.close()
+
 
 def cross_validate(question_dict, target_error_rate, save_path, num_splits, delta=0.05):
     questions = list(question_dict.keys())
@@ -150,8 +118,8 @@ def cross_validate(question_dict, target_error_rate, save_path, num_splits, delt
     
     for i in range(num_splits):
         random.shuffle(questions)
-        train_questions = set(questions[:4000])
-        val_questions = set(questions[4000:])
+        train_questions = set(questions[:50])
+        val_questions = set(questions[50:])
         
         train_dict = {q: question_dict[q] for q in train_questions}
         val_dict = {q: question_dict[q] for q in val_questions}
@@ -165,7 +133,7 @@ def cross_validate(question_dict, target_error_rate, save_path, num_splits, delt
         # save_dict_to_json(val_dict, val_filename)
         
         optimal_threshold = find_optimal_threshold(train_dict, target_error_rate, delta)
-        
+        # optimal_threshold = 35.46513445991667
         # if optimal threshold doesn't exist
         if optimal_threshold is None:
             none_count += 1
@@ -203,15 +171,15 @@ def cross_validate(question_dict, target_error_rate, save_path, num_splits, delt
         
     box_plot_results(val_ratios, contradict_ratios, iteration_avgs, target_error_rate, none_count, save_path)      
         
-with open("data1_cache_/question_dict.json", "r", encoding="utf-8") as f:
+with open("data1_cache_/question_dict_0.json", "r", encoding="utf-8") as f:
     question_dict = json.load(f)
 
-output_dir = "test_result"
+output_dir = "test_result_baseline"
 os.makedirs(output_dir, exist_ok=True)
 
-for target_error_rate in np.arange(0.2, 0.33, 0.01):
+for target_error_rate in np.arange(0.20, 0.33, 0.01):
     save_path = os.path.join(output_dir, f"result_target_{target_error_rate:.2f}.png")
     print(f"\n=== Running test for target error Rate: {target_error_rate:.2f} ===")
-    cross_validate(question_dict, target_error_rate, save_path, num_splits=100, delta=0.05)
+    cross_validate(question_dict, target_error_rate, save_path, num_splits=300, delta=0.05)
     
 
